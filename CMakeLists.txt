@@ -4,6 +4,7 @@ project(freehand)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(LLVM REQUIRED)
+find_package(Boost REQUIRED)
 
 include_directories(.)
 

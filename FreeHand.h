@@ -1,6 +1,7 @@
-//
-// Created by Evan on 12/6/2022.
-//
+/* FreeHand Dynamic Memory Safety Analysis Tool
+ * Author: Evan Hellman
+ * FreeHand header
+ */
 
 #ifndef FREEHAND_FREEHAND_H
 #define FREEHAND_FREEHAND_H
