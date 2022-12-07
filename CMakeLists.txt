@@ -4,14 +4,15 @@ PROJECT(freehand)
 SET(CMAKE_CXX_STANDARD 20)
 
 FIND_PACKAGE(LLVM REQUIRED)
-FIND_PACKAGE(Boost COMPONENTS program_options filesystem system)
+FIND_PACKAGE(Boost REQUIRED COMPONENTS program_options filesystem)
 
 INCLUDE_DIRECTORIES( ${LLVM_INCLUDE_DIR} )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
+# Main executable
 ADD_EXECUTABLE(freehand
         FreeHand.cpp
         FreeHand.h)
 
-TARGET_LINK_LIBRARIES(freehand LINK_PUBLIC ${LLVM_LIBRARIES} )
-TARGET_LINK_LIBRARIES(freehand LINK_PUBLIC ${Boost_LIBRARIES} )
+TARGET_LINK_LIBRARIES(freehand PUBLIC LLVM )
+TARGET_LINK_LIBRARIES(freehand PUBLIC boost_program_options boost_filesystem)
