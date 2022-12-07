@@ -11,5 +11,5 @@ int main(int argc, char* argv[]) {
 
     free(dynamic);
 
-    return 1;
+    return *dynamic;
 }

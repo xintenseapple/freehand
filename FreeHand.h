@@ -14,6 +14,10 @@
 #include <llvm/IR/Module.h>
 
 std::string VERSION("1.0.0");
+std::set<std::string> ALLOC_FUNCTION_NAMES = {"malloc", "aligned_malloc",
+                                              "calloc", "kmalloc", "kcalloc",
+                                              "vmalloc", "kzalloc"};
+std::set<std::string> FREE_FUNCTION_NAMES = {"free", "kfree"};
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -22,10 +26,19 @@ class FreeHand {
 public:
     explicit FreeHand(fs::path &bytecode_path);
 
+    ~FreeHand() = default;
+
+    void AnalyzeAllFunctions();
+    void AnalyzeFunction(llvm::Function& function);
+    void AnalyzeFunctionByName(std::string& function_name);
+
 private:
-    fs::path bytecode_path;
     llvm::LLVMContext llvm_context;
     std::unique_ptr<llvm::Module> llvm_module;
+
+    void printDF(llvm::Function &function, const llvm::DebugLoc &debugLoc);
+
+    void printUAF(llvm::Function &function, const llvm::DebugLoc &debugLoc);
 };
 
 void print_usage(po::options_description &options) {
@@ -34,7 +47,6 @@ void print_usage(po::options_description &options) {
 }
 
 int main(int argc, char **argv) {
-
     po::options_description options("Options");
     options.add_options()
             ("version,v", "Print a version string")
@@ -75,8 +87,9 @@ int main(int argc, char **argv) {
     }
 
     fs::path bytecode_file = variablesMap["bytecode_file"].as<fs::path>();
-
     FreeHand freehand(bytecode_file);
+
+    freehand.AnalyzeAllFunctions();
 
     return 0;
 }

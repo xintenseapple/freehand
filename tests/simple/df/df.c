@@ -9,7 +9,10 @@ int main(int argc, char* argv[]) {
     int* dynamic = malloc(sizeof(int));
     *dynamic = 1;
 
-    free(dynamic);
+    int* dynamic2 = dynamic;
 
-    return 1;
+    free(dynamic);
+    free(dynamic2);
+
+    return *dynamic;
 }
