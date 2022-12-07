@@ -5,11 +5,10 @@
 
 #include "MemoryAllocationAnalyzer.hpp"
 
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/SourceMgr.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/Instructions.h>
+#include <llvm-14/llvm/IRReader/IRReader.h>
+#include <llvm-14/llvm/Support/SourceMgr.h>
+#include <llvm-14/llvm/IR/Verifier.h>
+#include <llvm-14/llvm/IR/Instructions.h>
 
 std::set<std::string> ALLOC_FUNCTION_NAMES = {"malloc", "aligned_malloc",
                                               "calloc", "kmalloc", "kcalloc",

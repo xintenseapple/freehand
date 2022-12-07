@@ -10,8 +10,8 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
+#include <llvm-14/llvm/IR/LLVMContext.h>
+#include <llvm-14/llvm/IR/Module.h>
 
 #include "UAF.hpp"
 #include "DF.hpp"

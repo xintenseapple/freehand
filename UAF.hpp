@@ -7,8 +7,8 @@
 #define FREEHAND_UAF_HPP
 
 #include <boost/filesystem.hpp>
-#include <llvm/IR/DebugLoc.h>
-#include <llvm/IR/Function.h>
+#include <llvm-14/llvm/IR/DebugLoc.h>
+#include <llvm-14/llvm/IR/Function.h>
 
 namespace fs = boost::filesystem;
 
