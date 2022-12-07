@@ -1,166 +1,86 @@
-/* FreeHand Dynamic Memory Safety Analysis Tool
+/* MemoryAllocationAnalyzer Dynamic Memory Safety Analysis Tool
  * Author: Evan Hellman
- * FreeHand implementation
+ * FreeHand runner
  */
 
-#include "FreeHand.h"
+#include <iostream>
+#include <algorithm>
+#include "MemoryAllocationAnalyzer.hpp"
+#include "UAF.hpp"
+#include "DF.hpp"
 
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/SourceMgr.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/Instructions.h>
+std::string VERSION("1.0.0");
 
-FreeHand::FreeHand(fs::path &bytecode_path) {
-    llvm::SMDiagnostic diagnostic_report;
-    this->llvm_module = llvm::parseIRFile(llvm::StringRef(bytecode_path.c_str()),
-                                          diagnostic_report,
-                                          this->llvm_context);
-
-    if (!this->llvm_module) {
-        std::cerr << "ERROR: Failed to parse bytecode file:" << std::endl <<
-                  diagnostic_report.getMessage().data() << std::endl;
-        exit(1);
-    }
-
-    std::string error_output;
-    llvm::raw_string_ostream error_output_stream(error_output);
-    if (llvm::verifyModule(*this->llvm_module, &error_output_stream, nullptr)) {
-        std::cerr << "ERROR: Invalid module detected:" << std::endl << error_output_stream.str() << std::endl;
-        exit(1);
-    }
-
+void print_usage(po::options_description &options) {
+    std::cout << "Usage: freehand [options] bytecode_file" << std::endl;
+    std::cout << options << std::endl;
 }
 
-void FreeHand::AnalyzeAllFunctions() {
-    for (auto &function: *this->llvm_module) {
+int main(int argc, char **argv) {
+    po::options_description options("Options");
+    options.add_options()
+            ("version,v", "Print a version string")
+            ("help,h", "Produce a help message")
+            ("function,f", po::value<std::vector<std::string >>(), "Specific functions to analyze")
+            ("bytecode_file", po::value<fs::path>(),
+             "Bytecode file to analyze.");
 
+    po::positional_options_description positional_options;
+    positional_options.add("bytecode_file", 1);
+
+    po::variables_map variablesMap;
+    try {
+        po::store(po::command_line_parser(argc, argv)
+                          .options(options)
+                          .positional(positional_options)
+                          .run(),
+                  variablesMap);
+        po::notify(variablesMap);
+
+    } catch (po::error &e) {
+        std::cout << "ERROR: " << e.what() << std::endl << std::endl;
+        print_usage(options);
+        return 1;
     }
-}
 
-void FreeHand::AnalyzeFunction(llvm::Function &function) {
-    unsigned long long nextId = 0;
-    std::set<unsigned long long> freeSet;
+    if (variablesMap.count("help")) {
+        print_usage(options);
+        return 0;
+    } else if (variablesMap.count("version")) {
+        std::cout << "MemoryAllocationAnalyzer v" << VERSION << std::endl;
+        return 0;
+    }
 
-    std::map<llvm::Value *, std::vector<unsigned long long>> valueToIds;
+    if (!variablesMap.count("bytecode_file")) {
+        std::cerr << "ERROR: Missing argument 'bytecode_file'" << std::endl << std::endl;
+        print_usage(options);
+        return 1;
+    }
 
-    for (auto &basicBlock: function) {
-        for (auto &instruction: basicBlock) {
+    fs::path bytecode_file = variablesMap["bytecode_file"].as<fs::path>();
+    MemoryAllocationAnalyzer freehand(bytecode_file);
 
-            if (llvm::isa<llvm::CallBase>(&instruction)) {
-                auto callInstruction = llvm::cast<llvm::CallBase>(&instruction);
-
-                if (callInstruction->isIndirectCall()) {
-                    std::cout << "WARNING: Indirect call detected at source line "
-                              << instruction.getDebugLoc().getLine() << std::endl;
-                } else {
-                    llvm::Function *callee = callInstruction->getCalledFunction();
-                    std::string calleeName = callee->getName().str();
-
-                    if (ALLOC_FUNCTION_NAMES.contains(calleeName)) {
-                        std::vector p = {nextId++};
-                        valueToIds.emplace(&instruction, p);
-                    } else if (FREE_FUNCTION_NAMES.contains(calleeName)) {
-                        for (auto id: valueToIds[callInstruction->getArgOperand(0)]) {
-                            if (!freeSet.emplace(id).second) {
-                                this->printDF(function, instruction.getDebugLoc());
-                            }
-                        }
-                    }
-                }
-            } else if (llvm::isa<llvm::CastInst>(instruction)) {
-                auto castInstruction = llvm::cast<llvm::CastInst>(&instruction);
-
-                auto value = valueToIds.find(castInstruction->getOperand(0));
-                if (value != valueToIds.end()) {
-                    for (auto id: value->second) {
-                        if (freeSet.contains(id)) {
-                            this->printUAF(function, instruction.getDebugLoc());
-                        }
-                    }
-                    valueToIds[&instruction] = value->second;
-                }
-
-            } else if (llvm::isa<llvm::BinaryOperator>(instruction)) {
-                auto binaryOperator = llvm::cast<llvm::BinaryOperator>(&instruction);
-
-                if (!(binaryOperator->getOpcode() == llvm::BinaryOperator::BinaryOps::Xor &&
-                      binaryOperator->getOpcode() == llvm::BinaryOperator::BinaryOps::And &&
-                      binaryOperator->getOpcode() == llvm::BinaryOperator::BinaryOps::Or)) {
-
-                    std::vector<unsigned long long> new_ids;
-                    auto value1 = valueToIds.find(binaryOperator->getOperand(0));
-                    if (value1 != valueToIds.end()) {
-                        new_ids = value1->second;
-                    }
-
-                    auto value2 = valueToIds.find(binaryOperator->getOperand(1));
-                    if (value2 != valueToIds.end()) {
-                        new_ids.reserve(new_ids.size() + std::distance(value2->second.begin(),
-                                                                       value2->second.end()));
-                        new_ids.insert(new_ids.end(), value2->second.begin(), value2->second.end());
-                    }
-
-                    if (!new_ids.empty()) {
-                        for (auto id: new_ids) {
-                            if (freeSet.contains(id)) {
-                                this->printUAF(function, instruction.getDebugLoc());
-                            }
-                        }
-                        valueToIds[&instruction] = new_ids;
-                    }
-                }
-            } else if (llvm::isa<llvm::LoadInst>(instruction)) {
-                auto loadInstruction = llvm::cast<llvm::LoadInst>(&instruction);
-
-                auto value = valueToIds.find(loadInstruction->getPointerOperand());
-                if (value != valueToIds.end() && loadInstruction->getType()->isPointerTy()) {
-                    for (auto id: value->second) {
-                        if (freeSet.contains(id)) {
-                            this->printUAF(function, instruction.getDebugLoc());
-                        }
-                    }
-                    valueToIds[&instruction] = value->second;
-                }
-            } else if (llvm::isa<llvm::StoreInst>(instruction)) {
-                auto storeInstruction = llvm::cast<llvm::StoreInst>(&instruction);
-
-                auto value = valueToIds.find(storeInstruction->getValueOperand());
-                if (value != valueToIds.end() && storeInstruction->getValueOperand()->getType()->isPointerTy()) {
-                    for (auto id: value->second) {
-                        if (freeSet.contains(id)) {
-                            this->printUAF(function, instruction.getDebugLoc());
-                        }
-                    }
-                    valueToIds[storeInstruction->getPointerOperand()] = value->second;
-                }
-            }
+    if (!variablesMap.count("function")) {
+        freehand.analyzeAllFunctions();
+    } else {
+        for (auto function_name: variablesMap["function"].as<std::vector<std::string >>()) {
+            freehand.analyzeFunctionByName(function_name);
         }
     }
-}
 
-void FreeHand::AnalyzeFunctionByName(std::string &function_name) {
-
-    auto *function = this->llvm_module->getFunction(function_name);
-    if (function == nullptr) {
-        std::cerr << "ERROR: Function '" << function_name << "' does not exist" << std::endl;
+    auto dfs = freehand.getAllDF();
+    if (dfs.empty()) {
+        std::cout << "No Double-Free bugs found!" << std::endl;
+    } else {
+        std::for_each(dfs.begin(), dfs.end(), [](const DF &df) { std::cout << df; });
     }
 
-    this->AnalyzeFunction(*function);
-}
+    auto uafs = freehand.getAllUAF();
+    if (uafs.empty()) {
+        std::cout << "No Use-After-Free bugs found!" << std::endl;
+    } else {
+        std::for_each(uafs.begin(), uafs.end(), [](const UAF &uaf) { std::cout << uaf; });
+    }
 
-void FreeHand::printDF(llvm::Function &function, const llvm::DebugLoc &debugLoc) {
-    std::cout << "Potential Double-Free" << std::endl
-              << "\tFile: " << this->llvm_module->getSourceFileName() << std::endl
-              << "\tFunction: " << function.getName().str() << std::endl
-              << "\tLine: " << debugLoc.getLine() << std::endl
-              << std::endl;
-}
-
-void FreeHand::printUAF(llvm::Function &function, const llvm::DebugLoc &debugLoc) {
-    std::cout << "Potential Use-After-Free" << std::endl
-              << "\tFile: " << this->llvm_module->getSourceFileName() << std::endl
-              << "\tFunction: " << function.getName().str() << std::endl
-              << "\tLine: " << debugLoc.getLine() << std::endl
-              << std::endl;
+    return 0;
 }
