@@ -1,15 +1,17 @@
-cmake_minimum_required(VERSION 3.23)
-project(freehand)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.22)
+PROJECT(freehand)
 
-set(CMAKE_CXX_STANDARD 20)
+SET(CMAKE_CXX_STANDARD 20)
 
-find_package(LLVM REQUIRED)
-find_package(Boost REQUIRED)
+FIND_PACKAGE(LLVM REQUIRED)
+FIND_PACKAGE(Boost COMPONENTS program_options filesystem system)
 
-include_directories(.)
+INCLUDE_DIRECTORIES( ${LLVM_INCLUDE_DIR} )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
-add_executable(freehand
+ADD_EXECUTABLE(freehand
         FreeHand.cpp
         FreeHand.h)
 
-target_link_libraries(freehand LLVM)
+TARGET_LINK_LIBRARIES(freehand LINK_PUBLIC ${LLVM_LIBRARIES} )
+TARGET_LINK_LIBRARIES(freehand LINK_PUBLIC ${Boost_LIBRARIES} )
