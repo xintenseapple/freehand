@@ -141,6 +141,18 @@ void MemoryAllocationAnalyzer::analyzeFunction(llvm::Function &function) {
                     }
                     valueToIds[storeInstruction->getPointerOperand()] = value->second;
                 }
+            } else if (llvm::isa<llvm::GetElementPtrInst>(instruction)) {
+                auto getElementPtrInstruction = llvm::cast<llvm::GetElementPtrInst>(&instruction);
+
+                auto value = valueToIds.find(getElementPtrInstruction->getPointerOperand());
+                if (value != valueToIds.end()) {
+                    for (auto id: value->second) {
+                        if (freeSet.contains(id)) {
+                            this->addUAF(&function, instruction.getDebugLoc());
+                        }
+                    }
+                    valueToIds[&instruction] = value->second;
+                }
             }
         }
     }
@@ -157,7 +169,7 @@ void MemoryAllocationAnalyzer::analyzeFunctionByName(std::string &function_name)
 }
 
 void MemoryAllocationAnalyzer::addDF(llvm::Function *function, const llvm::DebugLoc &debugLoc) {
-    for (const auto& pair : this->dfMap[function]) {
+    for (const auto &pair: this->dfMap[function]) {
         if (pair.getLineNumber() == debugLoc.getLine() && pair.getColumnNumber() == debugLoc.getCol()) {
             return;
         }
@@ -166,7 +178,7 @@ void MemoryAllocationAnalyzer::addDF(llvm::Function *function, const llvm::Debug
 }
 
 void MemoryAllocationAnalyzer::addUAF(llvm::Function *function, const llvm::DebugLoc &debugLoc) {
-    for (const auto& pair : this->uafMap[function]) {
+    for (const auto &pair: this->uafMap[function]) {
         if (pair.getLineNumber() == debugLoc.getLine() && pair.getColumnNumber() == debugLoc.getCol()) {
             return;
         }

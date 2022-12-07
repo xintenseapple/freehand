@@ -1,6 +1,6 @@
 /* FreeHand Dynamic Memory Safety Analysis Tool
  * Author: Evan Hellman
- * Source file for simple test without dynamic memory flaws
+ * Source file for simple test with a double-free flaw
  */
 
 #include <stdlib.h>
