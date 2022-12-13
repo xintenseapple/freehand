@@ -63,5 +63,5 @@ Under the folder called `tests`,
 
 ### Generating Bytecode for The Testcases
 
-Whitin the `tests` folder, run `make`
+Whithin the `tests` folder, run `make`
 
