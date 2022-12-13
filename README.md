@@ -34,3 +34,34 @@ Options:\
 `-h [ --help ]` Produce a help message\
 `-f [ --function ] arg` Specific functions to analyze\
 `--bytecode_file arg`   Bytecode file to analyze.\
+
+## Directory Overview
+
+### Source Code
+
+ - `freehand.cpp` : main function; pass the bytecode to MemoryAllocationAnalyzer.cpp for analysis
+ - `MemoryAllocationAnalyzer.hpp`, `MemoryAllocationAnalyzer.cpp` : functions implementing algorithms for detecting any use after free cases or double free cases
+ - `DF.hpp` : header file including functions used for detecting double free cases
+ - `UAF.hpp` : header file including functions used for detecting use after free cases
+
+
+### Test Cases
+
+Under the folder called `tests`,
+ - `conditionals` :  test case with if, else statement
+ 	- `correct` : correct version of the test case
+	- `df` : version with double free case
+	- `uaf` : version with use after free case
+ - `loops` : test case with for loop; **needs fix as it cannot track different allocations called during iterations**
+ 	- `correct`
+ 	- `df`
+ 	- `uaf`
+ - `simple` : test case with simple allocation 
+ 	- `correct`
+	- `df`
+	- `uaf`
+
+### Generating Bytecode for The Testcases
+
+Whitin the `tests` folder, run `make`
+
